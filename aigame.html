@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mancala</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:        #1a0e05;
+      --wood-dark: #3b1f08;
+      --wood-mid:  #6b3a1f;
+      --wood-light:#a0622a;
+      --gold:      #d4a843;
+      --gold-glow: #f5d080;
+      --marble:    #e8dcc8;
+      --pit-bg:    #2a1408;
+      --pit-hover: #3e1e0a;
+      --text:      #f2e4c8;
+      --shadow:    rgba(0,0,0,0.7);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      font-family: 'Lora', serif;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background-image:
+        radial-gradient(ellipse at 20% 50%, rgba(107,58,31,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 50%, rgba(107,58,31,0.15) 0%, transparent 60%);
+    }
+
+    h1 {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: clamp(1.6rem, 4vw, 2.8rem);
+      color: var(--gold);
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 20px rgba(212,168,67,0.5), 0 2px 4px var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    /* ── Status box ── */
+    #status-box {
+      background: linear-gradient(135deg, var(--wood-dark), #2e1507);
+      border: 2px solid var(--gold);
+      border-radius: 10px;
+      padding: 10px 32px;
+      font-size: 1.1rem;
+      font-style: italic;
+      color: var(--gold-glow);
+      letter-spacing: 0.05em;
+      margin-bottom: 24px;
+      min-width: 260px;
+      text-align: center;
+      box-shadow: 0 0 14px rgba(212,168,67,0.25), inset 0 1px 0 rgba(255,255,255,0.07);
+      transition: background 0.3s;
+    }
+    #status-box.computer { color: #f0a070; }
+    #status-box.win      { color: #a0ff90; font-style: normal; font-weight: 600; font-size: 1.25rem; }
+    #status-box.lose     { color: #ff9090; font-style: normal; font-weight: 600; font-size: 1.25rem; }
+
+    /* ── Board ── */
+    #board {
+      display: flex;
+      align-items: stretch;
+      gap: 12px;
+      background: linear-gradient(160deg, var(--wood-mid), var(--wood-dark) 60%, #200e03);
+      border: 4px solid var(--wood-light);
+      border-radius: 28px;
+      padding: 20px 16px;
+      box-shadow:
+        0 10px 40px var(--shadow),
+        inset 0 2px 8px rgba(255,220,140,0.08),
+        0 0 0 1px rgba(212,168,67,0.15);
+      position: relative;
+    }
+    /* Decorative grain lines */
+    #board::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 24px;
+      background: repeating-linear-gradient(
+        92deg,
+        transparent,
+        transparent 40px,
+        rgba(0,0,0,0.06) 40px,
+        rgba(0,0,0,0.06) 41px
+      );
+      pointer-events: none;
+    }
+
+    /* ── Mancalas (stores) ── */
+    .mancala {
+      width: 90px;
+      background: radial-gradient(ellipse at center bottom, #1a0800 60%, #2f1408);
+      border: 3px solid var(--wood-light);
+      border-radius: 50px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 12px 8px;
+      gap: 5px;
+      position: relative;
+      box-shadow: inset 0 4px 16px rgba(0,0,0,0.6), 0 2px 4px var(--shadow);
+    }
+    .mancala-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: 0.8;
+      margin-bottom: 4px;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      align-self: center;
+    }
+    #mancala-player .mancala-label { transform: none; }
+    .mancala-count {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: 1.4rem;
+      color: var(--gold-glow);
+      position: absolute;
+      top: 14px;
+    }
+
+    /* ── Pits area ── */
+    #pits-area {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      justify-content: center;
+    }
+    .pit-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* ── Individual pit ── */
+    .pit {
+      width: 82px;
+      height: 82px;
+      background: radial-gradient(ellipse at 40% 40%, #3b1a07, var(--pit-bg));
+      border: 2px solid var(--wood-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: default;
+      position: relative;
+      box-shadow: inset 0 3px 10px rgba(0,0,0,0.7), 0 2px 4px rgba(0,0,0,0.4);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+      user-select: none;
+    }
+    .pit.clickable {
+      cursor: pointer;
+      border-color: var(--gold);
+      background: radial-gradient(ellipse at 40% 40%, #5a2b0e, #2e1206);
+    }
+    .pit.clickable:hover {
+      background: radial-gradient(ellipse at 40% 35%, #7a3c14, var(--pit-hover));
+      box-shadow: inset 0 3px 10px rgba(0,0,0,0.5), 0 0 14px rgba(212,168,67,0.4);
+      transform: scale(1.06);
+    }
+    .pit.clickable:active { transform: scale(0.97); }
+    .pit.empty { opacity: 0.45; }
+
+    /* ── Marbles inside a pit ── */
+    .marbles-wrap {
+      position: relative;
+      width: 62px;
+      height: 62px;
+    }
+    .marble {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff 0%, var(--marble) 40%, #c8b89a 100%);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5), inset 0 -1px 3px rgba(0,0,0,0.3);
+      transition: opacity 0.2s;
+    }
+    /* pre-computed positions for up to 6 marbles visible, rest shown as +N */
+    .pit-count-label {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      background: var(--wood-dark);
+      border: 1px solid var(--gold);
+      border-radius: 8px;
+      font-size: 0.65rem;
+      padding: 0 4px;
+      color: var(--gold-glow);
+      font-family: 'Lora', serif;
+      font-weight: 600;
+      pointer-events: none;
+    }
+
+    /* ── Scores row ── */
+    #scores {
+      display: flex;
+      gap: 40px;
+      margin-top: 20px;
+      font-size: 0.9rem;
+      color: var(--gold);
+      letter-spacing: 0.07em;
+    }
+
+    /* ── Restart button ── */
+    #restart-btn {
+      margin-top: 24px;
+      padding: 10px 36px;
+      background: linear-gradient(135deg, var(--wood-mid), var(--wood-dark));
+      border: 2px solid var(--gold);
+      border-radius: 30px;
+      color: var(--gold);
+      font-family: 'Lora', serif;
+      font-size: 1rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+    #restart-btn:hover {
+      background: linear-gradient(135deg, var(--wood-light), var(--wood-mid));
+      box-shadow: 0 4px 22px rgba(212,168,67,0.3);
+      transform: translateY(-2px);
+    }
+    #restart-btn:active { transform: translateY(0); }
+
+    /* ── Animated thinking dots ── */
+    .dots::after {
+      content: '';
+      animation: dots 1.2s steps(4,end) infinite;
+    }
+    @keyframes dots {
+      0%   { content: ''; }
+      25%  { content: '.'; }
+      50%  { content: '..'; }
+      75%  { content: '...'; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Mancala</h1>
+<div id="status-box">Your Turn</div>
+
+<div id="board">
+  <!-- Computer store (left) -->
+  <div class="mancala" id="mancala-computer">
+    <div class="mancala-label">Computer</div>
+    <div class="marbles-wrap" id="store-computer-marbles"></div>
+    <div class="mancala-count" id="store-computer-count">0</div>
+  </div>
+
+  <!-- Pits -->
+  <div id="pits-area">
+    <!-- Computer pits (top row, pits 7–12, displayed right→left) -->
+    <div class="pit-row" id="row-computer"></div>
+    <!-- Player pits (bottom row, pits 0–5, displayed left→right) -->
+    <div class="pit-row" id="row-player"></div>
+  </div>
+
+  <!-- Player store (right) -->
+  <div class="mancala" id="mancala-player">
+    <div class="mancala-label">You</div>
+    <div class="marbles-wrap" id="store-player-marbles"></div>
+    <div class="mancala-count" id="store-player-count">0</div>
+  </div>
+</div>
+
+<button id="restart-btn">New Game</button>
+
+<script>
+// ─────────────────────────────────────────────
+//  MANCALA — Standard rules (no avalanche)
+//  Pits index:  0-5  = player side (left→right)
+//               6    = player store
+//               7-12 = computer side (left→right from computer's view)
+//               13   = computer store
+// ─────────────────────────────────────────────
+
+const PLAYER_STORE   = 6;
+const COMPUTER_STORE = 13;
+const TOTAL_PITS     = 14;
+
+let board = [];
+let currentTurn = 'player'; // 'player' | 'computer'
+let gameOver = false;
+
+// Pre-computed marble positions inside the pit circle (62x62)
+const MARBLE_POSITIONS = [
+  [],
+  [[23,23]],
+  [[14,23],[32,23]],
+  [[14,18],[32,18],[23,34]],
+  [[12,14],[32,14],[12,34],[32,34]],
+  [[12,14],[32,14],[23,26],[12,38],[32,38]],
+  [[10,12],[30,12],[10,28],[30,28],[10,44],[30,44]],
+];
+
+function initBoard() {
+  board = Array(TOTAL_PITS).fill(4);
+  board[PLAYER_STORE]   = 0;
+  board[COMPUTER_STORE] = 0;
+  currentTurn = 'player';
+  gameOver    = false;
+  renderBoard();
+  setStatus('player');
+}
+
+function renderBoard() {
+  // Player pits: 0–5
+  const rowPlayer = document.getElementById('row-player');
+  rowPlayer.innerHTML = '';
+  for (let i = 0; i <= 5; i++) {
+    rowPlayer.appendChild(makePit(i, 'player'));
+  }
+
+  // Computer pits: 7–12, shown right→left (so pit 12 is leftmost visually)
+  const rowComputer = document.getElementById('row-computer');
+  rowComputer.innerHTML = '';
+  for (let i = 12; i >= 7; i--) {
+    rowComputer.appendChild(makePit(i, 'computer'));
+  }
+
+  // Stores
+  renderStore('store-player-marbles',   'store-player-count',   board[PLAYER_STORE]);
+  renderStore('store-computer-marbles', 'store-computer-count', board[COMPUTER_STORE]);
+}
+
+function makePit(index, owner) {
+  const pit = document.createElement('div');
+  pit.classList.add('pit');
+  pit.dataset.index = index;
+
+  const count = board[index];
+  if (count === 0) pit.classList.add('empty');
+
+  if (owner === 'player' && currentTurn === 'player' && !gameOver && count > 0) {
+    pit.classList.add('clickable');
+    pit.addEventListener('click', () => playerMove(index));
+  }
+
+  // Marbles visual
+  const wrap = document.createElement('div');
+  wrap.classList.add('marbles-wrap');
+  const showCount = Math.min(count, 6);
+  const positions = MARBLE_POSITIONS[showCount] || MARBLE_POSITIONS[6];
+  positions.forEach(([x, y]) => {
+    const m = document.createElement('div');
+    m.classList.add('marble');
+    m.style.left = x + 'px';
+    m.style.top  = y + 'px';
+    // slight hue variation for life
+    const hue = (index * 37 + x) % 40 - 20;
+    m.style.filter = `hue-rotate(${hue}deg)`;
+    wrap.appendChild(m);
+  });
+  if (count > 6) {
+    const lbl = document.createElement('div');
+    lbl.classList.add('pit-count-label');
+    lbl.textContent = count;
+    wrap.appendChild(lbl);
+  }
+  pit.appendChild(wrap);
+  return pit;
+}
+
+function renderStore(marbleId, countId, count) {
+  const wrap  = document.getElementById(marbleId);
+  const label = document.getElementById(countId);
+  wrap.innerHTML = '';
+  label.textContent = count;
+
+  // Scatter marbles randomly but seeded by count
+  const display = Math.min(count, 12);
+  for (let i = 0; i < display; i++) {
+    const m = document.createElement('div');
+    m.classList.add('marble');
+    // pseudo-random positions using golden angle
+    const angle  = i * 137.5 * Math.PI / 180;
+    const radius = 8 + (i % 4) * 9;
+    const cx = 31 + radius * Math.cos(angle);
+    const cy = 31 + radius * Math.sin(angle);
+    m.style.left   = Math.max(0, Math.min(46, cx - 8)) + 'px';
+    m.style.top    = Math.max(0, Math.min(46, cy - 8)) + 'px';
+    m.style.filter = `hue-rotate(${i * 15}deg)`;
+    wrap.appendChild(m);
+  }
+  if (count > 12) {
+    const lbl = document.createElement('div');
+    lbl.classList.add('pit-count-label');
+    lbl.textContent = count;
+    wrap.appendChild(lbl);
+  }
+}
+
+function setStatus(state) {
+  const box = document.getElementById('status-box');
+  box.className = '';
+  if (state === 'player') {
+    box.textContent = 'Your Turn';
+  } else if (state === 'computer') {
+    box.className   = 'computer dots';
+    box.textContent = "Computer's Turn";
+  } else if (state === 'win') {
+    box.className   = 'win';
+    box.textContent = '🎉 You Win!';
+  } else if (state === 'lose') {
+    box.className   = 'lose';
+    box.textContent = 'Computer Wins!';
+  } else if (state === 'tie') {
+    box.className   = 'win';
+    box.textContent = "It's a Tie!";
+  }
+}
+
+// ── Game logic ──────────────────────────────
+
+function sow(pitIndex, playerSide) {
+  // Returns true if last marble landed in own store (free turn)
+  let stones = board[pitIndex];
+  board[pitIndex] = 0;
+  let idx = pitIndex;
+
+  while (stones > 0) {
+    idx = (idx + 1) % TOTAL_PITS;
+    // Skip opponent's store
+    if (playerSide === 'player'   && idx === COMPUTER_STORE) continue;
+    if (playerSide === 'computer' && idx === PLAYER_STORE)   continue;
+    board[idx]++;
+    stones--;
+  }
+
+  // Capture rule: last stone in own empty pit (opposite must have stones)
+  const myPits    = playerSide === 'player' ? [0,1,2,3,4,5] : [7,8,9,10,11,12];
+  const myStore   = playerSide === 'player' ? PLAYER_STORE   : COMPUTER_STORE;
+  const opposite  = (i) => 12 - i;  // 0↔12, 1↔11, 2↔10, 3↔9, 4↔8, 5↔7
+
+  if (myPits.includes(idx) && board[idx] === 1 && board[opposite(idx)] > 0) {
+    board[myStore] += board[idx] + board[opposite(idx)];
+    board[idx]           = 0;
+    board[opposite(idx)] = 0;
+  }
+
+  const freeTurn = idx === myStore;
+  return freeTurn;
+}
+
+function checkGameOver() {
+  const playerEmpty   = [0,1,2,3,4,5].every(i => board[i] === 0);
+  const computerEmpty = [7,8,9,10,11,12].every(i => board[i] === 0);
+
+  if (playerEmpty || computerEmpty) {
+    // Collect remaining stones
+    [0,1,2,3,4,5].forEach(i => { board[PLAYER_STORE]   += board[i]; board[i] = 0; });
+    [7,8,9,10,11,12].forEach(i => { board[COMPUTER_STORE] += board[i]; board[i] = 0; });
+    gameOver = true;
+    renderBoard();
+    if      (board[PLAYER_STORE] > board[COMPUTER_STORE]) setStatus('win');
+    else if (board[PLAYER_STORE] < board[COMPUTER_STORE]) setStatus('lose');
+    else                                                    setStatus('tie');
+    return true;
+  }
+  return false;
+}
+
+function playerMove(pitIndex) {
+  if (gameOver || currentTurn !== 'player') return;
+  if (board[pitIndex] === 0) return;
+
+  const freeTurn = sow(pitIndex, 'player');
+  renderBoard();
+
+  if (checkGameOver()) return;
+
+  if (freeTurn) {
+    setStatus('player');   // bonus turn
+  } else {
+    currentTurn = 'computer';
+    setStatus('computer');
+    renderBoard();
+    setTimeout(computerTurn, 900);
+  }
+}
+
+// ── AI: simple heuristic ─────────────────────
+function computerTurn() {
+  if (gameOver) return;
+
+  const available = [7,8,9,10,11,12].filter(i => board[i] > 0);
+  if (available.length === 0) { checkGameOver(); return; }
+
+  // 1. Prefer move that gives free turn
+  let chosen = available.find(i => {
+    const dist = COMPUTER_STORE - i;  // stones needed to land in store
+    return board[i] === dist;
+  });
+
+  // 2. Prefer move that captures
+  if (!chosen) {
+    chosen = available.find(i => {
+      const simBoard = [...board];
+      let s = simBoard[i], idx = i;
+      simBoard[i] = 0;
+      while (s > 0) {
+        idx = (idx + 1) % TOTAL_PITS;
+        if (idx === PLAYER_STORE) continue;
+        simBoard[idx]++;
+        s--;
+      }
+      // lands in own empty pit?
+      const myPits = [7,8,9,10,11,12];
+      return myPits.includes(idx) && simBoard[idx] === 1 && board[12 - idx] > 0;
+    });
+  }
+
+  // 3. Pick pit with most stones
+  if (!chosen) {
+    chosen = available.reduce((best, i) => board[i] > board[best] ? i : best, available[0]);
+  }
+
+  const freeTurn = sow(chosen, 'computer');
+  renderBoard();
+
+  if (checkGameOver()) return;
+
+  if (freeTurn) {
+    setStatus('computer');
+    setTimeout(computerTurn, 900);
+  } else {
+    currentTurn = 'player';
+    setStatus('player');
+    renderBoard();
+  }
+}
+
+// ── Init ──────────────────────────────────────
+document.getElementById('restart-btn').addEventListener('click', initBoard);
+initBoard();
+</script>
+</body>
+</html>
